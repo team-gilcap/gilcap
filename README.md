@@ -261,15 +261,85 @@ feature ──▶ domain ◀── data
 
 ## 8. 담당
 
-| 담당 | 패키지 | 이번 주 목표 |
-|---|---|---|
-| ① | `core/model`, `domain`, `data/local`, `di` | 모델·인터페이스, 조건 매칭, 저장소, 통합 |
-| ② | `core/vehicle` | 기어·와이퍼 읽기, `VehicleSnapshotProvider` |
-| ③ | `core/location` | 위치·방향 읽기, 시연 GPX 경로 |
-| ④ | `core/audio`, `feature/capsulecreate` | STT·TTS, 음성 생성 흐름 |
-| ⑤ | `feature/capsulediscovery`, `feature/collection`, `debug` | 발견·재생 화면, 도감, 디버그 패널 |
- 
+### 나누는 기준
+1. **인터페이스 경계로 나눔**
+2. **SDK는 한 사람당 하나.**
+3. **자기 SDK를 쓰는 기능까지 끝까지 맡는다.** 그 SDK가 쓰이는 화면 동작까지 확인.
+   
+
+| 담당 | 패키지 | 한 줄 요약 | SDK |
+|---|---|---|---|
+| ① (정인 구현) | `core/model`, `domain/`, `data/local`, `di/` | 모델·조건 매칭·저장소·조립, PR 리뷰와 통합 | — |
+| ② 차량 | `core/vehicle`, `debug/` | 기어·와이퍼 읽기, 스냅샷 합치기, 시연 디버그 패널 | Vehicle |
+| ③ 위치·발견 | `core/location`, `feature/capsulediscovery` | 위치·방향 읽기, 시연 GPX, 발견 → 재생 → 수집 흐름 | FusedLocation |
+| ④ 음성·생성 | `core/audio`, `feature/capsulecreate` | STT·TTS, 음성 생성 흐름 | SpeechToText, TextToSpeech |
+| ⑤ 화면·제출 | `ui/`, `feature/collection` | 공통 화면, 주행 화면, 도감, README 실행 방법, APK | — |
 ---
+
+### 담당별 상세
+
+#### ① 정인: 모델·규칙·통합
+| 항목 | 내용 |
+|---|---|
+| 만드는 것 | `core/model` 전체, `CapsuleMatcher`, `ConditionClassifier`, `CapsuleRepository`·`DiscoveryRepository` 인터페이스와 메모리 구현, `di/` 조립 |
+| 할 일 | 모델·인터페이스 PR, **모든 인터페이스의 Fake 구현** (`FakeVehicleStateSource`, `FakeLocationSource`, `FakeSpeechListener`, `FakeSpeechSpeaker`) |
+| 기능 ID | F04, F06(저장), F07(규칙) |
+| 완료 기준 | 조건 매칭 단위 테스트 통과 (방향 350°↔10° 포함), Fake만으로 생성 → 발견 → 수집이 한 바퀴 돎 |
+
+#### ② 차량: Vehicle SDK + 시연 조건
+| 항목 | 내용 |
+|---|---|
+| 만드는 것 | `VehicleStateSource`(기어, 와이퍼 4단계), `VehicleSnapshotProvider`(차량 + 위치 + 시각 → `VehicleSnapshot`), `debug/` 패널 |
+| 디버그 패널 | 사용자 A/B 전환, 시간대 덮어쓰기(낮/밤/새벽), 전체 초기화, 현재 스냅샷·판정 조건 표시 |
+| 기능 ID | F02 |
+| 완료 기준 | Virtual Console에서 와이퍼·기어를 바꾸면 1초 안에 스냅샷에 반영됨. 디버그 패널로 시간대를 바꾸면 판정 조건이 바뀜 |
+
+#### ③ 위치·발견: FusedLocation + 발견 흐름
+| 항목 | 내용 |
+|---|---|
+| 만드는 것 | `LocationSource`(위치, 진행 방향, 속도), 시연 GPX 경로, `CapsuleDiscoveryFlow` |
+| 발견 흐름 | 스냅샷 감시 → 근처 캡슐 찾기 → `CapsuleMatcher`로 4조건 판정 → "캡슐이 있어요" → TTS 재생 → 도감 저장 |
+| 기능 ID | F02, F03, F05 |
+| 완료 기준 | 에뮬레이터에서 GPX를 재생하면 캡슐 지점에서 한 번만 열림. 반대 방향 GPX에서는 안 열림 |
+| 먼저 볼 것 | Pleos FusedLocation SDK, 에뮬레이터 Extended Controls → Location → Routes |
+| 처음엔 | 음성은 `FakeSpeechSpeaker`로 진행, ④가 완성하면 교체 |
+
+#### ④ 음성·생성: STT·TTS + 생성 흐름
+| 항목 | 내용 |
+|---|---|
+| 만드는 것 | `SpeechListener`(STT, 최대 10초), `SpeechSpeaker`(TTS, 끝날 때까지 대기), `CapsuleCreateFlow` |
+| 생성 흐름 | 버튼 → 스냅샷 고정 → "남길 말을 해주세요" → 듣기 → "이렇게 남길까요?" → 등록 / 다시(최대 2회) / 취소(8초 무응답 포함) |
+| 기능 ID | F01, F05(TTS) |
+| 완료 기준 | 에뮬레이터 마이크로 말한 문장이 캡슐로 저장되고, "등록·다시·취소"가 모두 동작함 |
+
+#### ⑤ 화면·제출: Compose + 도감 + 제출물
+| 항목 | 내용 |
+|---|---|
+| 만드는 것 | `ui/` 공통 테마, 주행 화면(상태 한 줄 + 자막 + [캡슐 남기기] 큰 버튼), `feature/collection` 도감 화면 |
+| 화면 상태 | `Listening`, `Confirming(text)`, `Created`, `Discovered`, `Playing`, `Collected`를 받아서 그리기 |
+| 기능 ID | F06(화면), F07(주행 중 화면 최소화, 도감은 P단에서만) |
+| 완료 기준 | 상태마다 화면이 바뀌고, D단에서는 도감이 안 열림.|
+| 처음엔 | 가짜 상태 값으로 화면부터 만들고, 흐름이 완성되면 연결 |
+
+
+### 의존 관계
+```
+① model·인터페이스·Fake  ─▶  ②③④⑤ 모두 시작 가능
+② VehicleSnapshotProvider ─▶  ③ 발견 흐름, ④ 생성 흐름 (그 전까진 Fake)
+④ SpeechSpeaker           ─▶  ③ 발견 재생 (그 전까진 Fake)
+③④ 흐름 상태              ─▶  ⑤ 화면 연결 (그 전까진 가짜 상태)
+```
+
+### 코드 외 업무
+ 
+| 일 | 담당 | 마감 |
+|---|---|---|
+| 기획서 최종본 | ① + ③ | 11/14 |
+| 서명 동의서 취합 (전원 개별 서명) | ① | 11/14 |
+| 시연 대사 원고 (생성·발견 멘트) | ④ | 11/12 |
+| README 실행 방법, APK | ⑤ | 11/15 |
+| 시연 영상 (여유 있으면) | ② + ⑤ | — |
+
 
 ## 9. 협업 규칙
 
@@ -279,6 +349,7 @@ feature ──▶ domain ◀── data
 - 권한(`AndroidManifest.xml`) 추가는 PR에 이유 적기
 - import는 `ai.pleos...`인지 확인 (이름이 같은 구글 지도·AAOS 클래스 주의)
 ---
+
 
 ## 10. 개발 환경
 
