@@ -1,42 +1,28 @@
 package com.gilcap.app
 
-import ai.pleos.playground.vehicle.Vehicle
-import ai.pleos.playground.vehicle.api.model.area.DoorArea
-import ai.pleos.playground.vehicle.constant.area.DoorValue
 import android.os.Bundle
-import android.util.Log
-import android.widget.TextView
-import androidx.annotation.RequiresPermission
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.sp
 
-class MainActivity : AppCompatActivity() {
-
-    private lateinit var vehicle: Vehicle
-
-    @RequiresPermission("pleos.car.permission.CAR_DOORS")
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(TextView(this).apply {
-            text = "길캡 - SDK 연결 테스트"
-            textSize = 32f
-        })
-
-        vehicle = Vehicle(this)
-        vehicle.initialize()
-        val door = vehicle.getDoor()
-        door.getCurrentDoorPosition(
-            area = DoorArea(DoorValue.ROW_1_LEFT),
-            onComplete = { pos: Int? ->
-                Log.d("GILCAP", "운전석 문 위치: $pos")
-            },
-            onFailed = { e: Exception ->
-                Log.e("GILCAP", "문 조회 실패: ${e.message}", e)
+        setContent {
+            MaterialTheme {
+                Surface(Modifier.fillMaxSize()) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("길캡", fontSize = 48.sp)
+                    }
+                }
             }
-        )
-    }
-
-    override fun onDestroy() {
-        vehicle.release()
-        super.onDestroy()
+        }
     }
 }
