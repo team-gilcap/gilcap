@@ -270,15 +270,15 @@ feature ──▶ domain ◀── data
 | 담당 | 패키지 | 한 줄 요약 | SDK |
 |---|---|---|---|
 | ① (정인 구현) | `core/model`, `domain/`, `data/local`, `di/` | 모델·조건 매칭·저장소·조립, PR 리뷰와 통합 | — |
-| ② 차량 | `core/vehicle`, `debug/` | 기어·와이퍼 읽기, 스냅샷 합치기, 시연 디버그 패널 | Vehicle |
-| ③ 위치·발견 | `core/location`, `feature/capsulediscovery` | 위치·방향 읽기, 시연 GPX, 발견 → 재생 → 수집 흐름 | FusedLocation |
-| ④ 음성·생성 | `core/audio`, `feature/capsulecreate` | STT·TTS, 음성 생성 흐름 | SpeechToText, TextToSpeech |
-| ⑤ 화면·제출 | `ui/`, `feature/collection` | 공통 화면, 주행 화면, 도감, README 실행 방법, APK | — |
+| ② 차량 (해린 구현) | `core/vehicle`, `debug/` | 기어·와이퍼 읽기, 스냅샷 합치기, 시연 디버그 패널 | Vehicle |
+| ③ 위치·발견 (재현 구현) | `core/location`, `feature/capsulediscovery` | 위치·방향 읽기, 시연 GPX, 발견 → 재생 → 수집 흐름 | FusedLocation |
+| ④ 음성·생성 (소영 구현) | `core/audio`, `feature/capsulecreate` | STT·TTS, 음성 생성 흐름 | SpeechToText, TextToSpeech |
+| ⑤ 화면·제출 (승민 구현) | `ui/`, `feature/collection` | 공통 화면, 주행 화면, 도감, README 실행 방법, APK | — |
 ---
 
 ### 담당별 상세
 
-#### ① 정인: 모델·규칙·통합
+#### ① 모델·규칙·통합 (정인)
 | 항목 | 내용 |
 |---|---|
 | 만드는 것 | `core/model` 전체, `CapsuleMatcher`, `ConditionClassifier`, `CapsuleRepository`·`DiscoveryRepository` 인터페이스와 메모리 구현, `di/` 조립 |
@@ -286,7 +286,7 @@ feature ──▶ domain ◀── data
 | 기능 ID | F04, F06(저장), F07(규칙) |
 | 완료 기준 | 조건 매칭 단위 테스트 통과 (방향 350°↔10° 포함), Fake만으로 생성 → 발견 → 수집이 한 바퀴 돎 |
 
-#### ② 차량: Vehicle SDK + 시연 조건
+#### ② 차량: Vehicle SDK + 시연 조건 (해린)
 | 항목 | 내용 |
 |---|---|
 | 만드는 것 | `VehicleStateSource`(기어, 와이퍼 4단계), `VehicleSnapshotProvider`(차량 + 위치 + 시각 → `VehicleSnapshot`), `debug/` 패널 |
@@ -294,7 +294,7 @@ feature ──▶ domain ◀── data
 | 기능 ID | F02 |
 | 완료 기준 | Virtual Console에서 와이퍼·기어를 바꾸면 1초 안에 스냅샷에 반영됨. 디버그 패널로 시간대를 바꾸면 판정 조건이 바뀜 |
 
-#### ③ 위치·발견: FusedLocation + 발견 흐름
+#### ③ 위치·발견: FusedLocation + 발견 흐름 (재현)
 | 항목 | 내용 |
 |---|---|
 | 만드는 것 | `LocationSource`(위치, 진행 방향, 속도), 시연 GPX 경로, `CapsuleDiscoveryFlow` |
@@ -304,7 +304,7 @@ feature ──▶ domain ◀── data
 | 먼저 볼 것 | Pleos FusedLocation SDK, 에뮬레이터 Extended Controls → Location → Routes |
 | 처음엔 | 음성은 `FakeSpeechSpeaker`로 진행, ④가 완성하면 교체 |
 
-#### ④ 음성·생성: STT·TTS + 생성 흐름
+#### ④ 음성·생성: STT·TTS + 생성 흐름 (소영)
 | 항목 | 내용 |
 |---|---|
 | 만드는 것 | `SpeechListener`(STT, 최대 10초), `SpeechSpeaker`(TTS, 끝날 때까지 대기), `CapsuleCreateFlow` |
@@ -312,7 +312,7 @@ feature ──▶ domain ◀── data
 | 기능 ID | F01, F05(TTS) |
 | 완료 기준 | 에뮬레이터 마이크로 말한 문장이 캡슐로 저장되고, "등록·다시·취소"가 모두 동작함 |
 
-#### ⑤ 화면·제출: Compose + 도감 + 제출물
+#### ⑤ 화면·제출: Compose + 도감 + 제출물 (승민)
 | 항목 | 내용 |
 |---|---|
 | 만드는 것 | `ui/` 공통 테마, 주행 화면(상태 한 줄 + 자막 + [캡슐 남기기] 큰 버튼), `feature/collection` 도감 화면 |
