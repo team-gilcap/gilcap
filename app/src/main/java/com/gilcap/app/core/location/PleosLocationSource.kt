@@ -84,11 +84,18 @@ class PleosLocationSource(
     }
 
     private fun onLocation(data: LocationData) {
-        _fix.value = estimator.update(
+        val fix = estimator.update(
             latitude = data.latitude,
             longitude = data.longitude,
             sdkHeading = data.heading,
             timestamp = data.timestampMillis.takeIf { it > 0 } ?: System.currentTimeMillis(),
+        )
+        _fix.value = fix
+        // 에뮬레이터 확인용: 방향은 계산값(SDK 원본값), 속도는 위치 변화로 계산한 값
+        log(
+            "위치 %.6f, %.6f | 방향 %.1f° (SDK %.1f°) | 속도 %.1fkm/h".format(
+                fix.latitude, fix.longitude, fix.headingDegrees, data.heading, fix.speedKph,
+            )
         )
         if (_status.value != Status.RUNNING) _status.value = Status.RUNNING
     }
