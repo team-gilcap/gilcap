@@ -64,7 +64,7 @@ class DemoScenarioTest {
         val vehicle = FakeVehicleStateSource().apply { setWiper(WiperState.LOW) }
         val location = GpxLocationSource()
         val snapshots = CombinedVehicleSnapshotProvider(
-            vehicle, location, CoroutineScope(UnconfinedTestDispatcher(test.testScheduler)),
+            vehicle, location, CoroutineScope(test.backgroundScope.coroutineContext + UnconfinedTestDispatcher(test.testScheduler)),   // ② 1초 타이머가 있어도 테스트가 끝나도록
             now = { test.testScheduler.currentTime },
         )
         val classifier = ConditionClassifier(timeOverride = { settings.timeOverride.value })
