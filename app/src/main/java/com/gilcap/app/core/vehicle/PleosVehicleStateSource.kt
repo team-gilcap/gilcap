@@ -8,6 +8,7 @@ import ai.pleos.playground.vehicle.constant.control.WiperSwitch
 import ai.pleos.playground.vehicle.listener.GearSelectionListener
 import ai.pleos.playground.vehicle.listener.WiperStateListener
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.util.Log
 import com.gilcap.app.core.model.Gear
@@ -33,6 +34,9 @@ import ai.pleos.playground.vehicle.constant.control.WiperState as SdkWiperState
  *   - 켜진 채 단계만 바뀌는 경우(LOW → HIGH)를 놓치지 않기 위해 [wiperPollMs]마다 추가 조회
  * - 권한(CAR_DRIVE: 기어, CAR_WINDOWS: 와이퍼)이 없는 항목은 구독하지 않고 [status]에 기록
  *   - 기본값(기어 UNKNOWN, 와이퍼 OFF) 유지로 캡슐이 잘못 열리지 않게 하기 위함
+ * - SDK 콜백 스레드와 0.5초 조회 루프가 동시에 접근하므로 공유 상태는 @Volatile로 구성
+ * - stop() 이후 늦게 도착한 콜백이나 SDK 예외가 앱을 종료시키지 않도록 조회를 예외 처리로 감쌈
+ * - 디버그 로그는 디버그 빌드에서만 기록 (release APK에 차량 상태 로그 미기록)
  */
 class PleosVehicleStateSource(
     context: Context,
@@ -42,9 +46,11 @@ class PleosVehicleStateSource(
     enum class Status { STOPPED, RUNNING, NO_PERMISSION, ERROR }
 
     private val appContext = context.applicationContext
-    private var vehicle: Vehicle? = null
-    private var scope: CoroutineScope? = null
-    private var wiperErrorLogged = false
+    private val debugLog = (appContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+
+    @Volatile private var vehicle: Vehicle? = null
+    @Volatile private var scope: CoroutineScope? = null
+    @Volatile private var wiperErrorLogged = false
 
     private val _gear = MutableStateFlow(Gear.UNKNOWN)
     override val gear: StateFlow<Gear> = _gear.asStateFlow()
@@ -124,15 +130,22 @@ class PleosVehicleStateSource(
 
     private fun readWiperSwitch() {
         val sdk = vehicle ?: return
-        sdk.getWiper().getCurrentWiperSwitch(
-            FRONT,
-            { switch: WiperSwitch? -> onWiperSwitch(switch) },
-            { e: Exception ->
-                // 0.5초마다 조회하므로 같은 오류의 반복 로그 방지
-                if (!wiperErrorLogged) onError("와이퍼 단계 조회 실패", e)
-                wiperErrorLogged = true
-            },
-        )
+        try {
+            sdk.getWiper().getCurrentWiperSwitch(
+                FRONT,
+                { switch: WiperSwitch? -> if (vehicle != null) onWiperSwitch(switch) },
+                ::onWiperReadFailed,
+            )
+        } catch (e: Exception) {
+            // release() 직후 호출 등 SDK가 바로 예외를 던지는 경우 대비 (조회 루프의 앱 종료 방지)
+            onWiperReadFailed(e)
+        }
+    }
+
+    private fun onWiperReadFailed(e: Exception) {
+        // 0.5초마다 조회하므로 같은 오류의 반복 로그 방지
+        if (!wiperErrorLogged) onError("와이퍼 단계 조회 실패", e)
+        wiperErrorLogged = true
     }
 
     private fun onGear(sdk: VehicleGear?) {
@@ -149,14 +162,17 @@ class PleosVehicleStateSource(
     }
 
     private fun onError(message: String, e: Exception) {
-        Log.e(TAG, "$message: ${e.message}", e)
+        // 오류는 release에서도 기록하되, 상세 스택은 디버그 빌드에서만 기록
+        if (debugLog) Log.e(TAG, "$message: ${e.message}", e) else Log.e(TAG, message)
     }
 
     private fun granted(permission: String) =
         appContext.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 
-    // 차량 상태(기어, 와이퍼)만 로그로 기록, 위치 같은 개인정보는 로그에 미기록
-    private fun log(message: String) = Log.d(TAG, message)
+    // 차량 상태(기어, 와이퍼)만 기록, 위치 같은 개인정보는 미기록. 디버그 빌드에서만 기록
+    private fun log(message: String) {
+        if (debugLog) Log.d(TAG, message)
+    }
 
     private companion object {
         const val TAG = "GILCAP/Vehicle"
