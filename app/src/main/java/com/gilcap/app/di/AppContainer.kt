@@ -33,7 +33,7 @@ class AppContainer(private val context: Context) {
     val demoSettings = DemoSettings()
 
     // ───────── 교체 지점: core (Fake → 진짜) ─────────
-    val vehicleStateSource: VehicleStateSource = PleosVehicleStateSource(context)   // ② (Fake: FakeVehicleStateSource())
+    val vehicleStateSource: VehicleStateSource = PleosVehicleStateSource(context)   // 2. 차량 (Fake: FakeVehicleStateSource())
     val locationSource: LocationSource = FakeLocationSource()               // ③ PleosLocationSource(context)
     val speechSpeaker: SpeechSpeaker = FakeSpeechSpeaker()                  // ④ PleosSpeechSpeaker(context)
     val speechListener: SpeechListener = FakeSpeechListener()               // ④ PleosSpeechListener(context)

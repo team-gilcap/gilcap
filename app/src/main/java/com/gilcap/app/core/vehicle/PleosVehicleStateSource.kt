@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 import ai.pleos.playground.vehicle.constant.control.WiperState as SdkWiperState
 
 /**
- * F02 기어·와이퍼 (Pleos Vehicle SDK)
+ * F02 기어, 와이퍼 (Pleos Vehicle SDK)
  *
  * - 기어: registerGearSelection 콜백으로 받도록 구성
  * - 와이퍼: SDK 콜백(registerWiperState)은 켜짐/꺼짐만 제공하고 단계(AUTO, LOW, HIGH)는 미제공
