@@ -4,6 +4,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import com.gilcap.app.ui.GilcapApp
 import androidx.activity.result.contract.ActivityResultContracts
 import com.gilcap.app.core.location.PleosLocationSource
 import androidx.compose.foundation.layout.Box
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.sp
 import com.gilcap.app.debug.DebugOverlay
 
+
 class MainActivity : ComponentActivity() {
 
     /** 위치 권한을 받으면 위치 구독을 다시 시작한다 (③) */
@@ -26,20 +28,28 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (checkSelfPermission(PleosLocationSource.PERMISSION) != PackageManager.PERMISSION_GRANTED) {
+
+        val container = (application as GilcapApplication).container
+
+        if (
+            checkSelfPermission(PleosLocationSource.PERMISSION) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
             locationPermission.launch(PleosLocationSource.PERMISSION)
         }
-        val container = (application as GilcapApplication).container
-        setContent {
-            MaterialTheme {
-                Surface(Modifier.fillMaxSize()) {
-                    Box(Modifier.fillMaxSize()) {
-                        Text("길캡", fontSize = 48.sp, modifier = Modifier.align(Alignment.Center))
 
-                        // 2. 차량 담당: 시연용 디버그 패널 (release 빌드에서는 빈 구현이 들어감)
-                        DebugOverlay(container, Modifier.align(Alignment.TopEnd))
-                    }
-                }
+        setContent {
+            Box(Modifier.fillMaxSize()) {
+                // 주행 화면과 도감
+                GilcapApp(container)
+
+                // debug 빌드에서만 표시되는 패널
+                DebugOverlay(
+                    container = container,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .safeDrawingPadding(),
+                )
             }
         }
     }

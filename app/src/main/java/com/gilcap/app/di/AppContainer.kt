@@ -2,10 +2,12 @@ package com.gilcap.app.di
 
 import android.content.Context
 import com.gilcap.app.core.audio.FakeSpeechListener
-import com.gilcap.app.core.audio.FakeSpeechSpeaker
+import com.gilcap.app.core.audio.PleosSpeechSpeaker
 import com.gilcap.app.core.audio.SpeechListener
 import com.gilcap.app.core.audio.SpeechSpeaker
 import com.gilcap.app.core.demo.DemoSettings
+import com.gilcap.app.core.location.DemoRoute
+import com.gilcap.app.core.location.FakeLocationSource
 import com.gilcap.app.core.location.LocationSource
 import com.gilcap.app.core.location.PleosLocationSource
 import com.gilcap.app.core.vehicle.CombinedVehicleSnapshotProvider
@@ -22,6 +24,10 @@ import com.gilcap.app.feature.capsulediscovery.CapsuleDiscoveryFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import com.gilcap.app.core.model.Capsule
+import com.gilcap.app.core.model.DemoUsers
+import com.gilcap.app.core.model.VehicleCondition
+import kotlinx.coroutines.launch
 
 /**
  * 앱 전체 조립.
@@ -34,10 +40,12 @@ class AppContainer(private val context: Context) {
     val demoSettings = DemoSettings()
 
     // ───────── 교체 지점: core (Fake → 진짜) ─────────
+
     val vehicleStateSource: VehicleStateSource = PleosVehicleStateSource(context)   // 2. 차량 (Fake: FakeVehicleStateSource())
     val locationSource: LocationSource = PleosLocationSource(context)       // ③ (Fake: FakeLocationSource())
-    val speechSpeaker: SpeechSpeaker = FakeSpeechSpeaker()                  // ④ PleosSpeechSpeaker(context)
+    val speechSpeaker: SpeechSpeaker = PleosSpeechSpeaker(context)                  // ④ PleosSpeechSpeaker(context)
     val speechListener: SpeechListener = FakeSpeechListener()               // ④ PleosSpeechListener(context)
+    
     // ────────────────────────────────────────────
 
     val snapshotProvider: VehicleSnapshotProvider =
@@ -51,6 +59,7 @@ class AppContainer(private val context: Context) {
     val capsuleRepository: CapsuleRepository = InMemoryCapsuleRepository()
     val discoveryRepository: DiscoveryRepository = InMemoryDiscoveryRepository()
 
+
     // feature
     val capsuleDiscoveryFlow = CapsuleDiscoveryFlow(
         snapshotProvider = snapshotProvider,
@@ -61,4 +70,26 @@ class AppContainer(private val context: Context) {
         currentUserId = { demoSettings.currentUserId.value },
         scope = appScope,
     )
+
+    // 시연 확인 후 제거할 테스트 데이터
+    init {
+        appScope.launch {
+            val now = System.currentTimeMillis()
+
+            capsuleRepository.save(
+                Capsule(
+                    id = "f05-demo",
+                    authorId = DemoUsers.B,
+                    messageText = "안녕하세요. 이 길에서 좋은 하루 보내세요.",
+                    latitude = DemoRoute.CAPSULE_LAT,
+                    longitude = DemoRoute.CAPSULE_LNG,
+                    headingDegrees = DemoRoute.FORWARD_HEADING,
+                    placeName = DemoRoute.PLACE_NAME,
+                    timeCondition = conditionClassifier.timeOf(now),
+                    vehicleCondition = VehicleCondition.CLEAR,
+                    createdAt = now,
+                )
+            )
+        }
+    }
 }
