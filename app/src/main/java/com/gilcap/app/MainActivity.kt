@@ -10,6 +10,8 @@ import com.gilcap.app.core.location.PleosLocationSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.gilcap.app.debug.DebugOverlay
@@ -37,8 +39,13 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             Box(Modifier.fillMaxSize()) {
-                // 주행 화면과 도감
-                GilcapApp(container)
+                // 주행 화면과 도감. [캡슐 남기기] 버튼은 음성 생성 흐름(④)을 시작한다
+                val createState by container.capsuleCreateFlow.state.collectAsStateWithLifecycle()
+                GilcapApp(
+                    container = container,
+                    createState = createState,
+                    onCreateCapsule = container.capsuleCreateFlow::start,
+                )
 
                 // debug 빌드에서만 표시되는 패널
                 DebugOverlay(
