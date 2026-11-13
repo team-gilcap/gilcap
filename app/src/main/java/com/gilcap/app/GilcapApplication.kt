@@ -12,6 +12,7 @@ class GilcapApplication : Application() {
         container = AppContainer(this)
         container.vehicleStateSource.start()
         container.locationSource.start()
+        container.capsuleDiscoveryFlow.start()
         println("GILCAP 앱 시작")
     }
 }
