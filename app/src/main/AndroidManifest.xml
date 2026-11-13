@@ -7,6 +7,8 @@
     <uses-permission android:name="pleos.car.permission.CAR_LIGHTS" />
     <uses-permission android:name="pleos.car.permission.CAR_CLIMATE" />
     <uses-permission android:name="pleos.car.permission.CAR_DRIVE" />
+    <!-- 위치·진행 방향 (Pleos FusedLocation SDK가 바인딩 시 확인) -->
+    <uses-permission android:name="pleos.car.permission.FUSED_LOCATION" />
     <application
         android:name=".GilcapApplication"
         android:allowBackup="true"
