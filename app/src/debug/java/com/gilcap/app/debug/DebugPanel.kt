@@ -36,17 +36,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gilcap.app.core.location.PleosLocationSource
 import com.gilcap.app.core.model.Capsule
 import com.gilcap.app.core.model.DemoUsers
 import com.gilcap.app.core.model.TimeCondition
+import com.gilcap.app.core.vehicle.PleosVehicleStateSource
 import com.gilcap.app.debug.DebugColors as C
 import com.gilcap.app.di.AppContainer
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /**
  * 시연용 디버그 패널 (F02)
  * - 사용자 A/B 전환, 시간대 덮어쓰기, 전체 초기화, 현재 차량 상태와 판정 조건 표시
+ * - 차량, 위치 SDK 연결 상태와 캡슐 발견 단계 표시
  * - DemoSettings를 바꾸면 생성, 발견 흐름이 바로 읽도록 구성 (별도 연결 불필요)
  * - 디버그 빌드 전용 폴더(src/debug)에만 두어 release APK에서 제외
  */
@@ -56,6 +61,22 @@ fun DebugPanel(container: AppContainer, onClose: () -> Unit, modifier: Modifier 
     val timeOverride by container.demoSettings.timeOverride.collectAsState()
     val snapshot by container.snapshotProvider.snapshot.collectAsState()
     val allCapsules by container.capsuleRepository.observeAll().collectAsState(initial = emptyList())
+    val discovery by container.capsuleDiscoveryFlow.state.collectAsState()
+
+    // 차량 상태는 스냅샷이 아니라 각 SDK 값을 직접 표시 (위치가 없어도 기어, 와이퍼 확인 가능)
+    val gear by container.vehicleStateSource.gear.collectAsState()
+    val wiper by container.vehicleStateSource.wiper.collectAsState()
+    val fix by container.locationSource.fix.collectAsState()
+
+    // 실제 SDK 구현일 때만 연결 상태 제공, Fake 사용 시 null
+    val vehicleSourceStatus by remember<StateFlow<PleosVehicleStateSource.Status?>> {
+        (container.vehicleStateSource as? PleosVehicleStateSource)?.status
+            ?: MutableStateFlow<PleosVehicleStateSource.Status?>(null)
+    }.collectAsState()
+    val locationSourceStatus by remember<StateFlow<PleosLocationSource.Status?>> {
+        (container.locationSource as? PleosLocationSource)?.status
+            ?: MutableStateFlow<PleosLocationSource.Status?>(null)
+    }.collectAsState()
 
     // 근처 캡슐은 위치나 캡슐 수가 바뀔 때만 다시 조회
     var nearby by remember { mutableStateOf(emptyList<Capsule>()) }
@@ -71,6 +92,12 @@ fun DebugPanel(container: AppContainer, onClose: () -> Unit, modifier: Modifier 
         classifier = container.conditionClassifier,
         nearby = nearby,
         totalCapsules = allCapsules.size,
+        vehicleSourceStatus = vehicleSourceStatus,
+        locationSourceStatus = locationSourceStatus,
+        discovery = discovery,
+        gear = gear,
+        wiper = wiper,
+        fix = fix,
     )
 
     Row(modifier.fillMaxHeight()) {
@@ -89,10 +116,10 @@ fun DebugPanel(container: AppContainer, onClose: () -> Unit, modifier: Modifier 
                 TextButton("닫기", color = C.accent, onClick = onClose)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(if (status.time != null) C.ok else C.warn))
+                Box(Modifier.size(8.dp).clip(CircleShape).background(if (status.allOk) C.ok else C.warn))
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    if (status.time != null) "차량 상태 수신 중  ${status.snapshotTime}" else "위치 미수신",
+                    status.headerText,
                     fontSize = 18.sp,
                     color = C.label,
                 )
@@ -126,7 +153,12 @@ fun DebugPanel(container: AppContainer, onClose: () -> Unit, modifier: Modifier 
                 modifier = Modifier.padding(top = 10.dp),
             )
 
-            // 3. 차량 상태
+            // 3. SDK 연결 상태
+            GroupTitle("연결 상태")
+            Item("차량 SDK", status.vehicleSource, valueColor = if (status.vehicleSourceOk) C.value else C.warn)
+            Item("위치 SDK", status.locationSource, valueColor = if (status.locationSourceOk) C.value else C.warn)
+
+            // 4. 차량 상태
             GroupTitle("차량 상태")
             Item("기어", status.gear)
             Item("와이퍼", status.wiper)
@@ -134,8 +166,9 @@ fun DebugPanel(container: AppContainer, onClose: () -> Unit, modifier: Modifier 
             Item("방향", status.heading)
             Item("위치", status.location)
 
-            // 4. 캡슐
+            // 5. 캡슐
             GroupTitle("캡슐")
+            Item("발견", status.discovery)
             Item("전체", "${status.totalCapsules}개")
             Item("근처", "${status.nearby.size}개")
             status.nearby.forEach {
