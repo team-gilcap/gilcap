@@ -1,10 +1,13 @@
 package com.gilcap.app.debug
 
+import com.gilcap.app.core.location.LocationFix
 import com.gilcap.app.core.location.PleosLocationSource
 import com.gilcap.app.core.model.Capsule
+import com.gilcap.app.core.model.Gear
 import com.gilcap.app.core.model.TimeCondition
 import com.gilcap.app.core.model.VehicleCondition
 import com.gilcap.app.core.model.VehicleSnapshot
+import com.gilcap.app.core.model.WiperState
 import com.gilcap.app.core.vehicle.PleosVehicleStateSource
 import com.gilcap.app.domain.matching.ConditionClassifier
 import com.gilcap.app.feature.capsulediscovery.DiscoveryUiState
@@ -15,7 +18,11 @@ import java.time.format.DateTimeFormatter
 /**
  * 디버그 패널에 표시할 현재 상태 한 장
  * - 화면(Compose)과 분리해 JVM 단위 테스트로 확인하기 위함
- * - 스냅샷이 없으면(위치 미수신) 차량, 조건 항목은 null
+ * - 차량, 위치 값은 각 SDK 값을 직접 표시
+ *   - 위치가 없어도 기어, 와이퍼는 확인 가능하게 하기 위함
+ * - 판정 조건은 스냅샷 기준, 스냅샷이 없으면(위치 미수신) null
+ * - 좌표는 소수 3자리(약 100m)까지만 표시
+ *   - 시연 영상 등 화면에 정확한 위치가 노출되지 않게 하기 위함
  * - SDK 연결 상태가 null이면 Fake 구현 사용 중
  */
 data class DebugStatus(
@@ -34,6 +41,7 @@ data class DebugStatus(
     val vehicleSource: String = FAKE,
     val locationSource: String = FAKE,
     val discovery: String = DISCOVERY_IDLE,
+    val judgedWiper: String? = null,
 ) {
     val vehicleSourceOk: Boolean get() = vehicleSource == RECEIVING || vehicleSource == FAKE
     val locationSourceOk: Boolean get() = locationSource == RECEIVING || locationSource == FAKE
@@ -48,9 +56,10 @@ data class DebugStatus(
     /**
      * 날씨 판정과 근거: "비  (와이퍼 LOW)"
      * - 날씨는 와이퍼 상태로 판단하므로 근거를 함께 표시해 바로 이해되게 하기 위함
+     * - 근거는 판정에 쓴 스냅샷의 와이퍼 값으로 표시
      */
     val weatherText: String?
-        get() = vehicle?.let { "${weatherName(it)}  (와이퍼 $wiper)" }
+        get() = vehicle?.let { "${weatherName(it)}  (와이퍼 $judgedWiper)" }
 
     /** 시간대 판정과 근거: "밤  (덮어쓰기)" 또는 "낮  (실제 시각)" */
     val timeText: String?
@@ -78,6 +87,9 @@ data class DebugStatus(
             PleosLocationSource.Status.ERROR -> "오류"
             PleosLocationSource.Status.STOPPED -> "중지"
         }
+
+        /** 좌표를 소수 3자리(약 100m)까지만 표시 */
+        fun coordinate(latitude: Double, longitude: Double) = "%.3f, %.3f".format(latitude, longitude)
 
         /** 발견 흐름 단계와 캡슐 이름: "재생 중  (비 오는 밤의 해안도로)" */
         fun discoveryName(state: DiscoveryUiState) = when (state) {
@@ -109,6 +121,9 @@ data class DebugStatus(
             vehicleSourceStatus: PleosVehicleStateSource.Status? = null,
             locationSourceStatus: PleosLocationSource.Status? = null,
             discovery: DiscoveryUiState = DiscoveryUiState.Idle,
+            gear: Gear? = snapshot?.gear,
+            wiper: WiperState? = snapshot?.wiper,
+            fix: LocationFix? = null,
             zoneId: ZoneId = ZoneId.systemDefault(),
         ) = DebugStatus(
             userId = userId,
@@ -116,11 +131,12 @@ data class DebugStatus(
             snapshotTime = snapshot?.let {
                 Instant.ofEpochMilli(it.timestamp).atZone(zoneId).format(TIME_FORMAT)
             },
-            location = snapshot?.let { "%.5f, %.5f".format(it.latitude, it.longitude) },
-            heading = snapshot?.let { "%.0f°".format(it.headingDegrees) },
-            speed = snapshot?.let { "%.0f km/h".format(it.speed) },
-            gear = snapshot?.gear?.name,
-            wiper = snapshot?.wiper?.name,
+            location = fix?.let { coordinate(it.latitude, it.longitude) }
+                ?: snapshot?.let { coordinate(it.latitude, it.longitude) },
+            heading = (fix?.headingDegrees ?: snapshot?.headingDegrees)?.let { "%.0f°".format(it) },
+            speed = (fix?.speedKph ?: snapshot?.speed)?.let { "%.0f km/h".format(it) },
+            gear = gear?.name,
+            wiper = wiper?.name,
             time = snapshot?.let { classifier.timeOf(it.timestamp) },
             vehicle = snapshot?.let { classifier.vehicleOf(it.wiper) },
             nearby = nearby.map { "${it.dexName} (${it.authorId})" },
@@ -128,6 +144,7 @@ data class DebugStatus(
             vehicleSource = vehicleSourceName(vehicleSourceStatus),
             locationSource = locationSourceName(locationSourceStatus),
             discovery = discoveryName(discovery),
+            judgedWiper = snapshot?.wiper?.name,
         )
     }
 }

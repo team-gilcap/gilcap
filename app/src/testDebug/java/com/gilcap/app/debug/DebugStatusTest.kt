@@ -1,5 +1,6 @@
 package com.gilcap.app.debug
 
+import com.gilcap.app.core.location.LocationFix
 import com.gilcap.app.core.location.PleosLocationSource
 import com.gilcap.app.core.model.Capsule
 import com.gilcap.app.core.model.DemoUsers
@@ -130,5 +131,42 @@ class DebugStatusTest {
     @Test fun `모든 SDK 상태 값을 빠짐없이 표시`() {
         PleosVehicleStateSource.Status.entries.forEach { assertTrue(DebugStatus.vehicleSourceName(it).isNotBlank()) }
         PleosLocationSource.Status.entries.forEach { assertTrue(DebugStatus.locationSourceName(it).isNotBlank()) }
+    }
+
+    @Test fun `위치가 없어도 차량 SDK 값은 표시`() {
+        val status = DebugStatus.of(
+            DemoUsers.A, timeOverride = null, snapshot = null,
+            classifier = ConditionClassifier(), nearby = emptyList(), totalCapsules = 0,
+            vehicleSourceStatus = PleosVehicleStateSource.Status.RUNNING,
+            locationSourceStatus = PleosLocationSource.Status.NO_PERMISSION,
+            gear = Gear.P, wiper = WiperState.LOW,
+        )
+        assertEquals("P", status.gear)
+        assertEquals("LOW", status.wiper)
+        assertNull(status.location)
+        assertNull(status.weatherText)
+    }
+
+    @Test fun `좌표는 소수 3자리까지만 표시`() {
+        val fix = LocationFix(latitude = 37.776543, longitude = 128.951234, headingDegrees = 45f, speedKph = 30f, timestamp = noon)
+        val status = DebugStatus.of(
+            DemoUsers.A, timeOverride = null, snapshot = snapshot(),
+            classifier = ConditionClassifier(zoneId = ZoneOffset.UTC),
+            nearby = emptyList(), totalCapsules = 0, fix = fix, zoneId = ZoneOffset.UTC,
+        )
+        assertEquals("37.777, 128.951", status.location)
+        assertEquals("45°", status.heading)
+        assertEquals("30 km/h", status.speed)
+    }
+
+    @Test fun `날씨 근거는 판정에 쓴 스냅샷 와이퍼로 표시`() {
+        val status = DebugStatus.of(
+            DemoUsers.A, timeOverride = null, snapshot = snapshot(WiperState.LOW),
+            classifier = ConditionClassifier(zoneId = ZoneOffset.UTC),
+            nearby = emptyList(), totalCapsules = 0,
+            wiper = WiperState.HIGH, zoneId = ZoneOffset.UTC,
+        )
+        assertEquals("비  (와이퍼 LOW)", status.weatherText)
+        assertEquals("HIGH", status.wiper)
     }
 }

@@ -63,6 +63,11 @@ fun DebugPanel(container: AppContainer, onClose: () -> Unit, modifier: Modifier 
     val allCapsules by container.capsuleRepository.observeAll().collectAsState(initial = emptyList())
     val discovery by container.capsuleDiscoveryFlow.state.collectAsState()
 
+    // 차량 상태는 스냅샷이 아니라 각 SDK 값을 직접 표시 (위치가 없어도 기어, 와이퍼 확인 가능)
+    val gear by container.vehicleStateSource.gear.collectAsState()
+    val wiper by container.vehicleStateSource.wiper.collectAsState()
+    val fix by container.locationSource.fix.collectAsState()
+
     // 실제 SDK 구현일 때만 연결 상태 제공, Fake 사용 시 null
     val vehicleSourceStatus by remember<StateFlow<PleosVehicleStateSource.Status?>> {
         (container.vehicleStateSource as? PleosVehicleStateSource)?.status
@@ -90,6 +95,9 @@ fun DebugPanel(container: AppContainer, onClose: () -> Unit, modifier: Modifier 
         vehicleSourceStatus = vehicleSourceStatus,
         locationSourceStatus = locationSourceStatus,
         discovery = discovery,
+        gear = gear,
+        wiper = wiper,
+        fix = fix,
     )
 
     Row(modifier.fillMaxHeight()) {
