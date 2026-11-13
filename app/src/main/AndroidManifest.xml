@@ -9,6 +9,8 @@
     <uses-permission android:name="pleos.car.permission.CAR_DRIVE" />
     <!-- F05: Pleos TTS 초기화 및 캡슐 음성 재생에 필요한 권한 -->
     <uses-permission android:name="pleos.car.permission.TTS_SERVICE" />
+    <!-- 위치·진행 방향 (Pleos FusedLocation SDK가 바인딩 시 확인) -->
+    <uses-permission android:name="pleos.car.permission.FUSED_LOCATION" />
     <application
         android:name=".GilcapApplication"
         android:allowBackup="true"

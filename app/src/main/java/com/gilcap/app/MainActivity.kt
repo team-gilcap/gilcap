@@ -1,17 +1,56 @@
 package com.gilcap.app
 
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.gilcap.app.ui.GilcapApp
+import androidx.activity.result.contract.ActivityResultContracts
+import com.gilcap.app.core.location.PleosLocationSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.sp
+import com.gilcap.app.debug.DebugOverlay
+
 
 class MainActivity : ComponentActivity() {
+
+    /** 위치 권한을 받으면 위치 구독을 다시 시작한다 (③) */
+    private val locationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) (application as GilcapApplication).container.locationSource.start()
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         val container = (application as GilcapApplication).container
+
+        if (
+            checkSelfPermission(PleosLocationSource.PERMISSION) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            locationPermission.launch(PleosLocationSource.PERMISSION)
+        }
+
         setContent {
-            // 생성 담당자가 제공할 상태와 시작 콜백은 GilcapApp의 매개변수로 연결한다.
-            GilcapApp(container)
+            Box(Modifier.fillMaxSize()) {
+                // 주행 화면과 도감
+                GilcapApp(container)
+
+                // debug 빌드에서만 표시되는 패널
+                DebugOverlay(
+                    container = container,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .safeDrawingPadding(),
+                )
+            }
         }
     }
 }
