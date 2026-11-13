@@ -55,10 +55,15 @@ class AppContainer(private val context: Context) {
     val capsuleRepository: CapsuleRepository = InMemoryCapsuleRepository()
     val discoveryRepository: DiscoveryRepository = InMemoryDiscoveryRepository()
 
-    // 화면이 실행 시점을 제어할 수 있도록 조립만 하고, 여기서 감시를 시작하지 않는다.
-    val discoveryFlow = CapsuleDiscoveryFlow(
-        snapshotProvider, capsuleRepository, discoveryRepository,
-        capsuleMatcher, speechSpeaker, demoSettings,
+    // F03의 발견 흐름에 실제 TTS를 연결한다. 시작은 GilcapApplication에서 한 번만 한다.
+    val capsuleDiscoveryFlow = CapsuleDiscoveryFlow(
+        snapshotProvider = snapshotProvider,
+        capsuleRepository = capsuleRepository,
+        discoveryRepository = discoveryRepository,
+        matcher = capsuleMatcher,
+        speaker = speechSpeaker,
+        currentUserId = { demoSettings.currentUserId.value },
+        scope = appScope,
     )
 
     // 시연 확인 후 제거할 테스트 데이터

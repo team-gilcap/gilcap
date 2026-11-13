@@ -12,14 +12,13 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.*
 import org.junit.Assert.*
 import org.junit.Test
 
-/** 실제 음성 장치 없이 발화 완료·실패·취소와 차량 상태 변경을 재현한다. */
+/** F03의 실행 API와 수집 정책을 기준으로 화면에 전달되는 재생 상태를 검증한다. */
 @OptIn(ExperimentalCoroutinesApi::class)
-class CapsuleDiscoveryFlowTest {
+class CapsulePlaybackIntegrationTest {
     private val capsule = Capsule(
         id = "capsule", authorId = DemoUsers.B, messageText = "이 길 정말 예뻐요",
         latitude = 37.77, longitude = 128.95, headingDegrees = 90f,
@@ -28,14 +27,14 @@ class CapsuleDiscoveryFlowTest {
     )
     private val snapshot = VehicleSnapshot(37.77, 128.95, 90f, 40f, Gear.D, WiperState.LOW, 0)
 
-    // 호출된 문장을 기록하고, 테스트마다 발화 대기·실패·취소 동작을 지정한다.
     private class Speaker : SpeechSpeaker {
         val spoken = mutableListOf<String>()
+        var stopped = false
         var body: suspend (String) -> Unit = {}
         override suspend fun speak(text: String) { spoken += text; body(text) }
-        override fun stop() = Unit
+        override fun stop() { stopped = true }
     }
-    // 테스트별 저장소와 상태를 분리하고 재시도 시계도 테스트의 가상 시간에 맞춘다.
+
     private inner class Fixture(scope: TestScope) {
         val settings = DemoSettings().apply { overrideTime(TimeCondition.NIGHT) }
         val snapshots = MutableStateFlow<VehicleSnapshot?>(snapshot)
@@ -43,134 +42,129 @@ class CapsuleDiscoveryFlowTest {
         val discoveries = InMemoryDiscoveryRepository()
         val speaker = Speaker()
         val flow = CapsuleDiscoveryFlow(
-            object : VehicleSnapshotProvider { override val snapshot = snapshots },
-            capsules, discoveries,
-            CapsuleMatcher(ConditionClassifier(timeOverride = { settings.timeOverride.value })),
-            speaker, settings, now = { scope.testScheduler.currentTime },
+            snapshotProvider = object : VehicleSnapshotProvider { override val snapshot = snapshots },
+            capsuleRepository = capsules,
+            discoveryRepository = discoveries,
+            matcher = CapsuleMatcher(ConditionClassifier(timeOverride = { settings.timeOverride.value })),
+            speaker = speaker,
+            currentUserId = { settings.currentUserId.value },
+            scope = scope.backgroundScope,
+            now = { scope.testScheduler.currentTime },
+            collectedHoldMillis = 100,
         )
     }
 
-    @Test fun `안내와 본문이 끝나야 수집하고 다시 재생하지 않는다`() = runTest {
+    @Test fun `안내 본문 수집 안내를 순차 재생하고 이미 수집한 캡슐은 반복하지 않는다`() = runTest {
         val f = Fixture(this)
         val completed = CompletableDeferred<Unit>()
         f.speaker.body = { if (it == capsule.messageText) completed.await() }
         f.capsules.save(capsule)
-        backgroundScope.launch { f.flow.run() }
+        f.flow.start()
+        f.flow.start()
         runCurrent()
-        assertEquals(listOf("누군가 남긴 캡슐이 있어요", capsule.messageText), f.speaker.spoken)
-        assertTrue(f.flow.state.value is DiscoveryUiState.Playing)
+        assertEquals(listOf(CapsuleDiscoveryFlow.ANNOUNCE_TEXT, capsule.messageText), f.speaker.spoken)
+        assertEquals(DiscoveryUiState.Playing(capsule), f.flow.state.value)
         assertFalse(f.discoveries.isDiscovered(capsule.id, DemoUsers.A))
-        // 새 스냅샷을 받아도 본문 재생이 끝나기 전에는 취소하거나 다시 시작하지 않아야 한다.
         f.snapshots.value = snapshot.copy(speed = 50f)
         advanceTimeBy(2_000); runCurrent()
         assertEquals(2, f.speaker.spoken.size)
-        // 본문 완료 신호를 보내 실제 발화가 끝난 상황을 재현한다.
         completed.complete(Unit)
         runCurrent()
         assertTrue(f.discoveries.isDiscovered(capsule.id, DemoUsers.A))
-        assertTrue(f.flow.state.value is DiscoveryUiState.Collected)
+        assertEquals(DiscoveryUiState.Collected(capsule), f.flow.state.value)
+        assertEquals(CapsuleDiscoveryFlow.collectedText(capsule), f.speaker.spoken.last())
         advanceTimeBy(5_000); runCurrent()
-        assertEquals(2, f.speaker.spoken.size)
+        assertEquals(3, f.speaker.spoken.size)
+        assertEquals(DiscoveryUiState.Idle, f.flow.state.value)
     }
 
-    @Test fun `자기 캡슐과 조건 불일치와 수집한 캡슐은 제외한다`() = runTest {
+    @Test fun `자기 캡슐 조건 불일치 수집한 캡슐은 제외한다`() = runTest {
         val f = Fixture(this)
         f.capsules.save(capsule.copy(id = "own", authorId = DemoUsers.A))
         f.capsules.save(capsule.copy(id = "wrong", headingDegrees = 270f))
         f.capsules.save(capsule)
         f.discoveries.save(CapsuleDiscovery(capsule.id, DemoUsers.A, 0, emptySet()))
-        backgroundScope.launch { f.flow.run() }
-        runCurrent()
+        f.flow.start(); runCurrent()
         assertTrue(f.speaker.spoken.isEmpty())
     }
 
-    @Test fun `재생 실패는 수집하지 않고 즉시 반복하지 않는다`() = runTest {
+    @Test fun `TTS 실패 시에도 수집하고 같은 캡슐을 반복 재생하지 않는다`() = runTest {
         val f = Fixture(this)
-        f.speaker.body = { if (it == capsule.messageText) error("TTS failed") }
+        f.speaker.body = { error("TTS failed") }
         f.capsules.save(capsule)
-        backgroundScope.launch { f.flow.run() }
-        runCurrent()
-        assertTrue(f.flow.state.value is DiscoveryUiState.Error)
-        assertFalse(f.discoveries.isDiscovered(capsule.id, DemoUsers.A))
-        advanceTimeBy(5_000); runCurrent()
-        assertEquals(2, f.speaker.spoken.size)
-        f.speaker.body = {}
-        // 재시도 제한 시간이 지나면 같은 캡슐을 다시 재생할 수 있어야 한다.
-        advanceTimeBy(30_000); runCurrent()
+        f.flow.start(); runCurrent()
         assertTrue(f.discoveries.isDiscovered(capsule.id, DemoUsers.A))
+        assertEquals(DiscoveryUiState.Collected(capsule), f.flow.state.value)
+        advanceTimeBy(5_000); runCurrent()
+        assertEquals(3, f.speaker.spoken.size)
     }
 
-    @Test fun `화면 종료로 취소한 재생은 수집하지 않는다`() = runTest {
+    @Test fun `stop으로 중지한 재생도 수집 기록을 남긴다`() = runTest {
         val f = Fixture(this)
         var cancelled = false
-        f.speaker.body = {
-            try { awaitCancellation() } finally { cancelled = true }
-        }
+        f.speaker.body = { try { awaitCancellation() } finally { cancelled = true } }
         f.capsules.save(capsule)
-        val job = backgroundScope.launch { f.flow.run() }
-        runCurrent()
-        job.cancel(); runCurrent()
+        f.flow.start(); runCurrent()
+        f.flow.stop(); runCurrent()
         assertTrue(cancelled)
-        assertFalse(f.discoveries.isDiscovered(capsule.id, DemoUsers.A))
+        assertTrue(f.speaker.stopped)
+        assertTrue(f.discoveries.isDiscovered(capsule.id, DemoUsers.A))
         assertEquals(DiscoveryUiState.Idle, f.flow.state.value)
     }
 
-    @Test fun `위치 미수신 중에는 대기하고 캡슐 추가도 감지한다`() = runTest {
+    @Test fun `위치를 받지 못하면 대기하고 다음 주기에 추가한 캡슐을 찾는다`() = runTest {
         val f = Fixture(this)
         f.snapshots.value = null
-        backgroundScope.launch { f.flow.run() }
-        runCurrent()
+        f.flow.start(); runCurrent()
         f.capsules.save(capsule)
-        runCurrent()
+        advanceTimeBy(1_000); runCurrent()
         assertTrue(f.speaker.spoken.isEmpty())
         f.snapshots.value = snapshot
-        runCurrent()
+        advanceTimeBy(1_000); runCurrent()
         assertTrue(f.discoveries.isDiscovered(capsule.id, DemoUsers.A))
     }
 
-    @Test fun `시연 시간대 변경을 감지한다`() = runTest {
+    @Test fun `시간대 변경을 다음 주기에 반영한다`() = runTest {
         val f = Fixture(this)
         f.settings.overrideTime(TimeCondition.DAY)
         f.capsules.save(capsule)
-        backgroundScope.launch { f.flow.run() }
-        runCurrent()
+        f.flow.start(); runCurrent()
         assertTrue(f.speaker.spoken.isEmpty())
         f.settings.overrideTime(TimeCondition.NIGHT)
-        runCurrent()
+        advanceTimeBy(1_000); runCurrent()
         assertTrue(f.discoveries.isDiscovered(capsule.id, DemoUsers.A))
     }
-    @Test fun `재생 중 사용자 전환 후에도 시작한 사용자에게 수집한다`() = runTest {
+
+    @Test fun `재생 중 사용자를 바꿔도 시작한 사용자에게 수집한다`() = runTest {
         val f = Fixture(this)
         val completed = CompletableDeferred<Unit>()
         f.speaker.body = { if (it == capsule.messageText) completed.await() }
         f.capsules.save(capsule)
-        backgroundScope.launch { f.flow.run() }
-        runCurrent()
+        f.flow.start(); runCurrent()
         f.settings.switchUser(DemoUsers.B)
-        runCurrent()
-        // 본문 완료 신호를 보내 실제 발화가 끝난 상황을 재현한다.
-        completed.complete(Unit)
-        runCurrent()
+        completed.complete(Unit); runCurrent()
         assertTrue(f.discoveries.isDiscovered(capsule.id, DemoUsers.A))
         assertFalse(f.discoveries.isDiscovered(capsule.id, DemoUsers.B))
     }
 
-    @Test fun `재생이 끝나면 최신 위치로 다음 캡슐을 판단한다`() = runTest {
+    @Test fun `pause 중에는 찾지 않고 resume 후 발견한다`() = runTest {
         val f = Fixture(this)
-        val completed = CompletableDeferred<Unit>()
-        f.speaker.body = { if (it == capsule.messageText) completed.await() }
         f.capsules.save(capsule)
-        f.capsules.save(capsule.copy(id = "second"))
-        backgroundScope.launch { f.flow.run() }
-        runCurrent()
-        f.snapshots.value = snapshot.copy(latitude = 38.0)
-        runCurrent()
-        // 본문 완료 신호를 보내 실제 발화가 끝난 상황을 재현한다.
-        completed.complete(Unit)
-        runCurrent()
-        advanceTimeBy(5_000); runCurrent()
-        assertEquals(2, f.speaker.spoken.size)
-        assertFalse(f.discoveries.isDiscovered("second", DemoUsers.A))
+        f.flow.pause()
+        f.flow.start()
+        advanceTimeBy(3_000); runCurrent()
+        assertTrue(f.speaker.spoken.isEmpty())
+        f.flow.resume()
+        advanceTimeBy(1_000); runCurrent()
+        assertTrue(f.discoveries.isDiscovered(capsule.id, DemoUsers.A))
     }
 
+    @Test fun `가장 가까운 캡슐을 우선 재생한다`() = runTest {
+        val f = Fixture(this)
+        f.capsules.save(capsule.copy(id = "far", latitude = 37.7703, messageText = "멀리 있는 캡슐"))
+        f.capsules.save(capsule)
+        f.flow.start(); runCurrent()
+        assertEquals(capsule.messageText, f.speaker.spoken[1])
+        assertFalse(f.discoveries.isDiscovered("far", DemoUsers.A))
+    }
 }

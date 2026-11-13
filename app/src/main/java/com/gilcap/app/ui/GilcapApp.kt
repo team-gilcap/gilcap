@@ -23,7 +23,7 @@ fun GilcapApp(
     createState: CreateUiState = CreateUiState.Idle,
     onCreateCapsule: (() -> Unit)? = null,
 ) {
-    val discoveryState by container.discoveryFlow.state.collectAsStateWithLifecycle()
+    val discoveryState by container.capsuleDiscoveryFlow.state.collectAsStateWithLifecycle()
     val gear by container.vehicleStateSource.gear.collectAsStateWithLifecycle()
     val userId by container.demoSettings.currentUserId.collectAsStateWithLifecycle()
     var collectionRequested by rememberSaveable { mutableStateOf(false) }
