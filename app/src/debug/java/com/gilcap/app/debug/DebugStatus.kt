@@ -93,6 +93,7 @@ data class DebugStatus(
 
         /** 발견 흐름 단계와 캡슐 이름: "재생 중  (비 오는 밤의 해안도로)" */
         fun discoveryName(state: DiscoveryUiState) = when (state) {
+            is DiscoveryUiState.Error -> "오류  (${state.message})"
             DiscoveryUiState.Idle -> DISCOVERY_IDLE
             is DiscoveryUiState.Discovered -> "발견  (${state.capsule.dexName})"
             is DiscoveryUiState.Playing -> "재생 중  (${state.capsule.dexName})"
