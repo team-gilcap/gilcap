@@ -9,7 +9,7 @@ import com.gilcap.app.core.demo.DemoSettings
 import com.gilcap.app.core.location.LocationSource
 import com.gilcap.app.core.location.PleosLocationSource
 import com.gilcap.app.core.vehicle.CombinedVehicleSnapshotProvider
-import com.gilcap.app.core.vehicle.FakeVehicleStateSource
+import com.gilcap.app.core.vehicle.PleosVehicleStateSource
 import com.gilcap.app.core.vehicle.VehicleSnapshotProvider
 import com.gilcap.app.core.vehicle.VehicleStateSource
 import com.gilcap.app.data.local.InMemoryCapsuleRepository
@@ -34,7 +34,7 @@ class AppContainer(private val context: Context) {
     val demoSettings = DemoSettings()
 
     // ───────── 교체 지점: core (Fake → 진짜) ─────────
-    val vehicleStateSource: VehicleStateSource = FakeVehicleStateSource()   // ② PleosVehicleStateSource(context)
+    val vehicleStateSource: VehicleStateSource = PleosVehicleStateSource(context)   // 2. 차량 (Fake: FakeVehicleStateSource())
     val locationSource: LocationSource = PleosLocationSource(context)       // ③ (Fake: FakeLocationSource())
     val speechSpeaker: SpeechSpeaker = FakeSpeechSpeaker()                  // ④ PleosSpeechSpeaker(context)
     val speechListener: SpeechListener = FakeSpeechListener()               // ④ PleosSpeechListener(context)
