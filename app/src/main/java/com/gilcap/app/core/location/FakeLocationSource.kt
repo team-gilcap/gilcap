@@ -4,10 +4,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** 가짜 위치. 기본값은 시연 지점(임시 좌표, ③이 실제 시연 지점으로 교체) */
+/** 가짜 위치. 기본값은 시연 캡슐 지점에서 정방향으로 달리는 중 ([DemoRoute]) */
 class FakeLocationSource : LocationSource {
     private val _fix = MutableStateFlow<LocationFix?>(
-        LocationFix(DEMO_LAT, DEMO_LNG, headingDegrees = 90f, speedKph = 40f, timestamp = System.currentTimeMillis())
+        LocationFix(DEMO_LAT, DEMO_LNG, headingDegrees = DEMO_HEADING, speedKph = 40f, timestamp = System.currentTimeMillis())
     )
     override val fix: StateFlow<LocationFix?> = _fix.asStateFlow()
 
@@ -19,7 +19,8 @@ class FakeLocationSource : LocationSource {
     }
 
     companion object {
-        const val DEMO_LAT = 37.7700
-        const val DEMO_LNG = 128.9500
+        const val DEMO_LAT = DemoRoute.CAPSULE_LAT
+        const val DEMO_LNG = DemoRoute.CAPSULE_LNG
+        const val DEMO_HEADING = DemoRoute.FORWARD_HEADING
     }
 }

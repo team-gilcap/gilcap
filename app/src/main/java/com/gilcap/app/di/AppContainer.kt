@@ -6,6 +6,7 @@ import com.gilcap.app.core.audio.PleosSpeechSpeaker
 import com.gilcap.app.core.audio.SpeechListener
 import com.gilcap.app.core.audio.SpeechSpeaker
 import com.gilcap.app.core.demo.DemoSettings
+import com.gilcap.app.core.location.DemoRoute
 import com.gilcap.app.core.location.FakeLocationSource
 import com.gilcap.app.core.location.LocationSource
 import com.gilcap.app.core.vehicle.CombinedVehicleSnapshotProvider
@@ -76,10 +77,10 @@ class AppContainer(private val context: Context) {
                     id = "f05-demo",
                     authorId = DemoUsers.B,
                     messageText = "안녕하세요. 이 길에서 좋은 하루 보내세요.",
-                    latitude = FakeLocationSource.DEMO_LAT,
-                    longitude = FakeLocationSource.DEMO_LNG,
-                    headingDegrees = 90f,
-                    placeName = "해안도로",
+                    latitude = DemoRoute.CAPSULE_LAT,
+                    longitude = DemoRoute.CAPSULE_LNG,
+                    headingDegrees = DemoRoute.FORWARD_HEADING,
+                    placeName = DemoRoute.PLACE_NAME,
                     timeCondition = conditionClassifier.timeOf(now),
                     vehicleCondition = VehicleCondition.CLEAR,
                     createdAt = now,
