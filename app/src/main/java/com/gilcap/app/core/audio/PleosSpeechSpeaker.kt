@@ -21,7 +21,11 @@ import kotlinx.coroutines.sync.withLock
  * Pleos TTS의 초기화·재생 콜백을 suspend 함수로 연결한다.
  * 요청마다 SDK 연결을 분리해 이전 요청의 늦은 콜백이 다음 재생을 완료시키지 않도록 한다.
  */
-class PleosSpeechSpeaker(context: Context) : SpeechSpeaker {
+class PleosSpeechSpeaker(
+    context: Context,
+    // 첫 음절이 잘리지 않도록 발화마다 앞에 넣는 선행 묵음 (가이드 권장 150~200ms)
+    private val preRoll: PreRollSilence = AudioTrackPreRollSilence(),
+) : SpeechSpeaker {
     private val applicationContext = context.applicationContext
     // 생성 안내와 발견 재생 등 여러 호출자의 발화가 겹치지 않도록 요청 단위로 잠근다.
     private val mutex = Mutex()
@@ -53,7 +57,10 @@ class PleosSpeechSpeaker(context: Context) : SpeechSpeaker {
                         session.tts.addEventListener(session.listener)
                         session.listening = true
                         session.tts.setLocale(Locale.KOREA)
-                        session.tts.speak(text)
+                        // 발화마다 SDK 세션을 새로 열기 때문에 매번 선행 묵음을 적용한다.
+                        preRoll.play()
+                        // 묵음 재생 중 stop()이 들어왔으면 합성을 요청하지 않는다.
+                        if (!session.completed.isCompleted) session.tts.speak(text)
                         // speak() 호출 자체는 비동기이므로 onDone()을 받을 때까지 기다린다.
                         session.completed.await()
                     }

@@ -26,7 +26,7 @@ import java.util.UUID
  * [캡슐 남기기] 버튼 → start()
  *   → 그 순간의 VehicleSnapshot 고정 (말하는 동안 이동해도 누른 지점이 기준)
  *   → "남길 말을 해주세요"                         Listening
- *   → 듣기 (최대 10초)
+ *   → 듣기 (최대 30초)
  *   → "'○○○' 이렇게 남길까요? 등록, 다시, 취소"    Confirming(text)
  *       ├ 등록 → 저장 → "비 오는 밤의 해안도로에 캡슐을 남겼어요"   Created(capsule)
  *       ├ 다시 → 듣기 단계로 (최대 2회)
@@ -189,7 +189,7 @@ class CapsuleCreateFlow(
 
     companion object {
         /** 남길 말 듣기 제한 */
-        const val MESSAGE_TIMEOUT_MILLIS = 10_000L
+        const val MESSAGE_TIMEOUT_MILLIS = 30_000L
 
         /** 확인 대답 제한. 넘으면 취소 */
         const val CONFIRM_TIMEOUT_MILLIS = 8_000L

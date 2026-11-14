@@ -103,12 +103,12 @@ class CapsuleCreateFlowTest {
         )
     }
 
-    @Test fun `듣기는 10초 확인은 8초를 기다린다`() = runTest {
+    @Test fun `듣기는 30초 확인은 8초를 기다린다`() = runTest {
         val f = Fixture(this, snapshot, "안녕", "등록")
 
         f.flow.runOnce()
 
-        assertEquals(listOf(10_000L, 8_000L), f.listener.timeouts)
+        assertEquals(listOf(30_000L, 8_000L), f.listener.timeouts)
     }
 
     @Test fun `말하는 동안 이동해도 버튼을 누른 지점에 저장된다`() = runTest {
