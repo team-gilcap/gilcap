@@ -1,7 +1,7 @@
 package com.gilcap.app.di
 
 import android.content.Context
-import com.gilcap.app.core.audio.FakeSpeechListener
+import com.gilcap.app.core.audio.PleosSpeechListener
 import com.gilcap.app.core.audio.PleosSpeechSpeaker
 import com.gilcap.app.core.audio.SpeechListener
 import com.gilcap.app.core.audio.SpeechSpeaker
@@ -20,6 +20,7 @@ import com.gilcap.app.domain.matching.CapsuleMatcher
 import com.gilcap.app.domain.matching.ConditionClassifier
 import com.gilcap.app.domain.repository.CapsuleRepository
 import com.gilcap.app.domain.repository.DiscoveryRepository
+import com.gilcap.app.feature.capsulecreate.CapsuleCreateFlow
 import com.gilcap.app.feature.capsulediscovery.CapsuleDiscoveryFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,7 +45,7 @@ class AppContainer(private val context: Context) {
     val vehicleStateSource: VehicleStateSource = PleosVehicleStateSource(context)   // 2. 차량 (Fake: FakeVehicleStateSource())
     val locationSource: LocationSource = PleosLocationSource(context)       // ③ (Fake: FakeLocationSource())
     val speechSpeaker: SpeechSpeaker = PleosSpeechSpeaker(context)                  // ④ PleosSpeechSpeaker(context)
-    val speechListener: SpeechListener = FakeSpeechListener()               // ④ PleosSpeechListener(context)
+    val speechListener: SpeechListener = PleosSpeechListener(context)       // ④ (Fake: FakeSpeechListener())
     
     // ────────────────────────────────────────────
 
@@ -69,6 +70,21 @@ class AppContainer(private val context: Context) {
         speaker = speechSpeaker,
         currentUserId = { demoSettings.currentUserId.value },
         scope = appScope,
+    )
+
+    // ④ F01 음성 생성. 생성 중에는 발견을 멈춰 음성이 겹치지 않게 한다
+    val capsuleCreateFlow = CapsuleCreateFlow(
+        snapshotProvider = snapshotProvider,
+        speaker = speechSpeaker,
+        listener = speechListener,
+        classifier = conditionClassifier,
+        capsuleRepository = capsuleRepository,
+        currentUserId = { demoSettings.currentUserId.value },
+        scope = appScope,
+        placeNameOf = { DemoRoute.PLACE_NAME },
+        onRunningChanged = { running ->
+            if (running) capsuleDiscoveryFlow.pause() else capsuleDiscoveryFlow.resume()
+        },
     )
 
     // 시연 확인 후 제거할 테스트 데이터
