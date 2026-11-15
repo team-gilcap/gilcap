@@ -4,6 +4,7 @@ import ai.pleos.playground.location.fused.FusedLocation
 import ai.pleos.playground.location.fused.listener.FusedLocationListener
 import ai.pleos.playground.location.fused.model.LocationData
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +26,7 @@ class PleosLocationSource(
     enum class Status { STOPPED, RUNNING, NO_PERMISSION, UNSUPPORTED, ERROR }
 
     private val appContext = context.applicationContext
+    private val debugLog = (appContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     private var fusedLocation: FusedLocation? = null
 
     private val _fix = MutableStateFlow<LocationFix?>(null)
@@ -92,7 +94,8 @@ class PleosLocationSource(
         )
         _fix.value = fix
         // 에뮬레이터 확인용: 방향은 계산값(SDK 원본값), 속도는 위치 변화로 계산한 값
-        log(
+        // 좌표는 debug 빌드에서만 남긴다
+        if (debugLog) log(
             "위치 %.6f, %.6f | 방향 %.1f° (SDK %.1f°) | 속도 %.1fkm/h".format(
                 fix.latitude, fix.longitude, fix.headingDegrees, data.heading, fix.speedKph,
             )

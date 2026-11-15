@@ -7,6 +7,7 @@ import ai.pleos.playground.stt.listener.OnInitializeListener
 import ai.pleos.playground.stt.listener.OnServerConnectionListener
 import ai.pleos.playground.stt.listener.ResultListener
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -40,6 +41,7 @@ class PleosSpeechListener(
 ) : SpeechListener {
 
     private val appContext = context.applicationContext
+    private val debugLog = (appContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     private val hasCredentials = !clientId.isNullOrBlank() && !clientSecret.isNullOrBlank()
     private val mode = if (hasCredentials) Mode.HYBRID else Mode.ON_DEVICE
 
@@ -107,7 +109,8 @@ class PleosSpeechListener(
             if (withTimeoutOrNull(END_GRACE_MILLIS) { current.ended.await() } == null) {
                 stopEngine(engine)
             }
-            Log.d(TAG, "STT 결과: $text")
+            // 사용자가 말한 내용은 debug 빌드에서만 남긴다
+            if (debugLog) Log.d(TAG, "STT 결과: $text")
             text
         } catch (e: CancellationException) {
             stopEngine(engine)
