@@ -50,7 +50,7 @@
  
 ---
 
-## APK
+## 3. APK
 - **위치:** [`apk/gilcap_길위의캡슐_release.apk`](apk/) (release 빌드)
 - 용량 초과 시: [GitHub Releases](../../releases)
 
