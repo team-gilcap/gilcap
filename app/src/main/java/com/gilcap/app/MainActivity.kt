@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity() {
                     onCreateCapsule = container.capsuleCreateFlow::start,
                 )
 
-                // debug 빌드에서만 표시되는 패널
+                // 시연 패널 (release 빌드는 P단에서만 표시)
                 DebugOverlay(
                     container = container,
                     modifier = Modifier

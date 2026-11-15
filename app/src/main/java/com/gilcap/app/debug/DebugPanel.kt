@@ -53,7 +53,7 @@ import kotlinx.coroutines.launch
  * - 사용자 A/B 전환, 시간대 덮어쓰기, 전체 초기화, 현재 차량 상태와 판정 조건 표시
  * - 차량, 위치 SDK 연결 상태와 캡슐 발견 단계 표시
  * - DemoSettings를 바꾸면 생성, 발견 흐름이 바로 읽도록 구성 (별도 연결 불필요)
- * - 디버그 빌드 전용 폴더(src/debug)에만 두어 release APK에서 제외
+ * - release 빌드에서는 P단에서만 열리도록 구성 (DebugOverlay)
  */
 @Composable
 fun DebugPanel(container: AppContainer, onClose: () -> Unit, modifier: Modifier = Modifier) {

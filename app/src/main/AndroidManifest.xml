@@ -2,10 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <!-- 차량 상태 조회 -->
-    <uses-permission android:name="pleos.car.permission.CAR_DOORS" />
     <uses-permission android:name="pleos.car.permission.CAR_WINDOWS" />
-    <uses-permission android:name="pleos.car.permission.CAR_LIGHTS" />
-    <uses-permission android:name="pleos.car.permission.CAR_CLIMATE" />
     <uses-permission android:name="pleos.car.permission.CAR_DRIVE" />
     <!-- F05: Pleos TTS 초기화 및 캡슐 음성 재생에 필요한 권한 -->
     <uses-permission android:name="pleos.car.permission.TTS_SERVICE" />
@@ -16,7 +13,7 @@
     <application
         android:name=".GilcapApplication"
         android:appCategory="audio"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
